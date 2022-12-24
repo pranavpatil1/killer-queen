@@ -1,9 +1,21 @@
 import Phaser from "phaser";
 import { Client, Room } from "colyseus.js";
 export class GameScene extends Phaser.Scene {
+
+    // local input cache
+    inputPayload = {
+        left: false,
+        right: false,
+        up: false,
+        down: false
+    }
+
+    cursorKeys: Phaser.Types.Input.Keyboard.CursorKeys;
+
     preload() {
         // preload scene
         this.load.image('ship_0001', 'https://cdn.glitch.global/3e033dcd-d5be-4db4-99e8-086ae90969ec/ship_0001.png');
+        this.cursorKeys = this.input.keyboard.createCursorKeys();
     }
 
     client = new Client("ws://localhost:2567");
@@ -25,6 +37,11 @@ export class GameScene extends Phaser.Scene {
 
                 // keep a reference of it on `playerEntities`
                 this.playerEntities[sessionId] = entity;
+
+                player.onChange = (() => {
+                    entity.x = player.x;
+                    entity.y = player.y;
+                })
             });
 
             this.room.state.players.onRemove = ((player, sessionId) => {
@@ -46,6 +63,15 @@ export class GameScene extends Phaser.Scene {
 
     update(time: number, delta: number): void {
         // game loop
+        // skip loop if not connected with room yet
+        if (!this.room) { return; }
+
+        // send input to the server
+        this.inputPayload.left = this.cursorKeys.left.isDown;
+        this.inputPayload.right = this.cursorKeys.right.isDown;
+        this.inputPayload.up = this.cursorKeys.up.isDown;
+        this.inputPayload.down = this.cursorKeys.down.isDown;
+        this.room.send(0, this.inputPayload);
     }
 }
 
