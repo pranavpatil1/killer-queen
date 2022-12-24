@@ -1,11 +1,23 @@
 import Phaser from "phaser";
+import { Client, Room } from "colyseus.js";
 export class GameScene extends Phaser.Scene {
     preload() {
         // preload scene
     }
 
-    create() {
+    client = new Client("ws://localhost:2567");
+    room: Room;
+
+    async create() {
         // create scene
+        console.log("Joining room...");
+
+        try {
+            this.room = await this.client.joinOrCreate("my_room");
+            console.log("Joined successfully!");
+        } catch (e) {
+            console.error(e);
+        }
     }
 
     update(time: number, delta: number): void {
