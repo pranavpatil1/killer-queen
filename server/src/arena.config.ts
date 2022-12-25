@@ -14,6 +14,7 @@ export default Arena({
          * Define your room handlers:
          */
         gameServer.define('my_room', MyRoom);
+        gameServer.simulateLatency(50);
 
     },
 

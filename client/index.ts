@@ -12,6 +12,9 @@ export class GameScene extends Phaser.Scene {
 
     cursorKeys: Phaser.Types.Input.Keyboard.CursorKeys;
 
+    currentPlayer: Phaser.Types.Physics.Arcade.ImageWithDynamicBody;
+    remoteRef: Phaser.GameObjects.Rectangle;
+
     preload() {
         // preload scene
         this.load.image('ship_0001', 'https://cdn.glitch.global/3e033dcd-d5be-4db4-99e8-086ae90969ec/ship_0001.png');
@@ -38,11 +41,25 @@ export class GameScene extends Phaser.Scene {
                 // keep a reference of it on `playerEntities`
                 this.playerEntities[sessionId] = entity;
 
-                player.onChange = (() => {
-                    // LERP during the render loop
-                    entity.setData('serverX', player.x);
-                    entity.setData('serverY', player.y);
-                })
+                if (sessionId === this.room.sessionId) {
+
+                    this.currentPlayer = entity;
+
+                    this.remoteRef = this.add.rectangle(0,0, entity.width, entity.height);
+                    this.remoteRef.setStrokeStyle(1, 0xff0000);
+
+                    player.onChange = (() => {
+                        this.remoteRef.x = player.x;
+                        this.remoteRef.y = player.y;
+                    })
+                } else {
+                    player.onChange = (() => {
+                        // LERP during the render loop
+                        entity.setData('serverX', player.x);
+                        entity.setData('serverY', player.y);
+                    })
+                }
+                
             });
 
             this.room.state.players.onRemove = ((player, sessionId) => {
@@ -68,14 +85,30 @@ export class GameScene extends Phaser.Scene {
         if (!this.room) { return; }
 
         // send input to the server
+        const velocity = 2;
         this.inputPayload.left = this.cursorKeys.left.isDown;
         this.inputPayload.right = this.cursorKeys.right.isDown;
         this.inputPayload.up = this.cursorKeys.up.isDown;
         this.inputPayload.down = this.cursorKeys.down.isDown;
         this.room.send(0, this.inputPayload);
 
+        if (this.inputPayload.left) {
+            this.currentPlayer.x -= velocity;
+        } else if (this.inputPayload.right) {
+            this.currentPlayer.x += velocity;
+        } else if (this.inputPayload.up) {
+            this.currentPlayer.y -= velocity;
+        } else if (this.inputPayload.down) {
+            this.currentPlayer.y += velocity;
+        }
+
 
         for (let sessionId in this.playerEntities) {
+
+            if (sessionId === this.room.sessionId) {
+                continue;
+            }
+
             // interpolate all player entities
             const entity = this.playerEntities[sessionId];
             const { serverX, serverY } = entity.data.values;
