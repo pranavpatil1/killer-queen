@@ -17,7 +17,7 @@ export class GameScene extends Phaser.Scene {
 
     cursorKeys: Phaser.Types.Input.Keyboard.CursorKeys;
 
-    currentPlayer: Phaser.Types.Physics.Arcade.ImageWithDynamicBody;
+    currentPlayer: Phaser.Physics.Matter.Image;
     remoteRef: Phaser.GameObjects.Rectangle;
 
     preload() {
@@ -41,18 +41,13 @@ export class GameScene extends Phaser.Scene {
             this.room.state.players.onAdd = ((player, sessionId) => {
                 console.log("A player has joined! Their unique sesion id is ", sessionId)
 
-
-                var group = this.physics.add.group({
-                    defaultKey: 'ship_0001',
-                    bounceX: 1,
-                    bounceY: 1,
-                    collideWorldBounds: true
-                })
-
-                // const entity = this.physics.add.image(player.x, player.y, 'ship_0001');
-                // entity.setGravityY(50);
-
-                const entity = group.create(200, 300).setGravityY(50);
+                const entity = this.matter.add.image(40, 50, 'ship_0001');
+                entity.setFixedRotation();
+                entity.setMass(30);
+                entity.setFrictionAir(0.05);
+                entity.setAngle(270);
+                
+                this.matter.world.setBounds(0,0, 800, 600);
 
                 // keep a reference of it on `playerEntities`
                 this.playerEntities[sessionId] = entity;
@@ -108,13 +103,13 @@ export class GameScene extends Phaser.Scene {
         this.inputPayload.down = this.cursorKeys.down.isDown;
 
         if (this.inputPayload.left) {
-            this.currentPlayer.setAcceleration(-100, 0);
+            this.currentPlayer.thrustLeft(0.02);
         } else if (this.inputPayload.right) {
-            this.currentPlayer.setAcceleration(100, 0);
+            this.currentPlayer.thrustRight(0.02);
         } else if (this.inputPayload.up) {
-            this.currentPlayer.setAcceleration(0, -100);
+            this.currentPlayer.thrust(0.1);
         } else if (this.inputPayload.down) {
-            this.currentPlayer.setAcceleration(0, 10);
+            this.currentPlayer.thrustBack(0.1);
         }
 
         // this.room.send(0, this.positionPayload);
@@ -153,8 +148,12 @@ const config: Phaser.Types.Core.GameConfig = {
     backgroundColor: '#888888',
     parent: 'phaser-example',
     physics: { 
-        default: "arcade",
-        arcade: {
+        default: "matter",
+        matter: {
+            gravity: {
+                x: 0,
+                y: 1
+            },
             debug: true
         }
      },
