@@ -84,6 +84,11 @@ export class GameScene extends Phaser.Scene {
                 }
             });
 
+            var spaceBar = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+            spaceBar.on('down', () => {
+                this.currentPlayer.thrust(0.75);
+            })
+
             console.log("Joined successfully!");
         } catch (e) {
             console.error(e);
