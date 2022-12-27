@@ -1,6 +1,6 @@
 {
-    "watch": ["src"],
+    "watch": ["authoritative_server", "public"],
     "ext": ".ts,.js",
     "ignore": [],
-    "exec": "npx ts-node ./src/index.ts"
+    "exec": "npx ./index.js"
 }
