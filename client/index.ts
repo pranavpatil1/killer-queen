@@ -10,6 +10,11 @@ export class GameScene extends Phaser.Scene {
         down: false
     }
 
+    positionPayload = {
+        x: 0,
+        y: 0
+    }
+
     cursorKeys: Phaser.Types.Input.Keyboard.CursorKeys;
 
     currentPlayer: Phaser.Types.Physics.Arcade.ImageWithDynamicBody;
@@ -36,7 +41,18 @@ export class GameScene extends Phaser.Scene {
             this.room.state.players.onAdd = ((player, sessionId) => {
                 console.log("A player has joined! Their unique sesion id is ", sessionId)
 
-                const entity = this.physics.add.image(player.x, player.y, 'ship_0001');
+
+                var group = this.physics.add.group({
+                    defaultKey: 'ship_0001',
+                    bounceX: 1,
+                    bounceY: 1,
+                    collideWorldBounds: true
+                })
+
+                // const entity = this.physics.add.image(player.x, player.y, 'ship_0001');
+                // entity.setGravityY(50);
+
+                const entity = group.create(200, 300).setGravityY(50);
 
                 // keep a reference of it on `playerEntities`
                 this.playerEntities[sessionId] = entity;
@@ -90,22 +106,31 @@ export class GameScene extends Phaser.Scene {
         this.inputPayload.right = this.cursorKeys.right.isDown;
         this.inputPayload.up = this.cursorKeys.up.isDown;
         this.inputPayload.down = this.cursorKeys.down.isDown;
-        this.room.send(0, this.inputPayload);
 
         if (this.inputPayload.left) {
-            this.currentPlayer.x -= velocity;
+            this.currentPlayer.setAcceleration(-100, 0);
         } else if (this.inputPayload.right) {
-            this.currentPlayer.x += velocity;
+            this.currentPlayer.setAcceleration(100, 0);
         } else if (this.inputPayload.up) {
-            this.currentPlayer.y -= velocity;
+            this.currentPlayer.setAcceleration(0, -100);
         } else if (this.inputPayload.down) {
-            this.currentPlayer.y += velocity;
+            this.currentPlayer.setAcceleration(0, 10);
         }
+
+        // this.room.send(0, this.positionPayload);
+
 
 
         for (let sessionId in this.playerEntities) {
 
             if (sessionId === this.room.sessionId) {
+                const currentPlayer = this.playerEntities[this.room.sessionId];
+        
+                this.positionPayload.x = this.currentPlayer.x;
+                this.positionPayload.y = this.currentPlayer.y;
+        
+                
+                this.room.send(0, this.positionPayload);
                 continue;
             }
 
@@ -125,9 +150,14 @@ const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
     width: 800,
     height: 600,
-    backgroundColor: '#b6d53c',
+    backgroundColor: '#888888',
     parent: 'phaser-example',
-    physics: { default: "arcade" },
+    physics: { 
+        default: "arcade",
+        arcade: {
+            debug: true
+        }
+     },
     pixelArt: true,
     scene: [ GameScene ],
 };

@@ -12,15 +12,8 @@ export class MyRoom extends Room<MyRoomState> {
       const player = this.state.players.get(client.sessionId);
       const velocity = 2;
 
-      if (input.left) {
-        player.x -= velocity;
-      } else if (input.right) {
-        player.x += velocity;
-      } else if (input.up) {
-        player.y -= velocity;
-      } else if (input.down) {
-        player.y += velocity;
-      }
+      player.x = input.x;
+      player.y = input.y;
 
     });
 
