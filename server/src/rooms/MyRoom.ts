@@ -14,6 +14,8 @@ export class MyRoom extends Room<MyRoomState> {
 
       player.x = input.x;
       player.y = input.y;
+      player.velX = input.velX;
+      player.velY = input.velY;
 
     });
 

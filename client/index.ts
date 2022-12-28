@@ -12,7 +12,9 @@ export class GameScene extends Phaser.Scene {
 
     positionPayload = {
         x: 0,
-        y: 0
+        y: 0,
+        velX: 0,
+        velY: 0,
     }
 
     cursorKeys: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -39,28 +41,18 @@ export class GameScene extends Phaser.Scene {
         try {
             this.room = await this.client.joinOrCreate("my_room");
 
-            const mapName = "day_map";
+            const mapName: string = "day_map";
             const mapImage = this.textures.get(mapName).getSourceImage();
-            const width = this.sys.game.scale.gameSize.width;
-            const height = width * mapImage.height / mapImage.width;
+            const width: number = this.sys.game.scale.gameSize.width;
+            const height: number = width * mapImage.height / mapImage.width;
 
-            const background = this.add.image(0, 0, mapName);
+            const background: Phaser.GameObjects.Image = this.add.image(0, 0, mapName);
             background.setScale(width / mapImage.width, height / mapImage.height);
             background.setOrigin(0, 0);
 
-            this.room.state.players.onAdd = ((player, sessionId) => {
-                console.log("A player has joined! Their unique sesion id is ", sessionId)
-
-                const entity = this.matter.add.image(40, 50, 'ship_0001');
-                entity.setFixedRotation();
-                entity.setMass(30);
-                entity.setFrictionAir(0.05);
-                entity.setAngle(270);
+            this.room.state.players.onAdd = ((player, sessionId: string) => {
                 
-                this.matter.world.setBounds(0,0, width, height);
-
-                // keep a reference of it on `playerEntities`
-                this.playerEntities[sessionId] = entity;
+                let entity: Phaser.Physics.Matter.Image = this.setupRoom(sessionId, width, height);
 
                 if (sessionId === this.room.sessionId) {
 
@@ -78,6 +70,8 @@ export class GameScene extends Phaser.Scene {
                         // LERP during the render loop
                         entity.setData('serverX', player.x);
                         entity.setData('serverY', player.y);
+                        entity.setData('serverVelX', player.velX);
+                        entity.setData('serverVelY', player.velY);
                     })
                 }
                 
@@ -105,6 +99,23 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
+    setupRoom = (sessionId: string, width: number, height: number): Phaser.Physics.Matter.Image => {
+        console.log("A player has joined! Their unique sesion id is ", sessionId)
+
+        const entity = this.matter.add.image(40, 50, 'ship_0001');
+        entity.setFixedRotation();
+        entity.setMass(30);
+        entity.setFrictionAir(0.05);
+        entity.setAngle(270);
+        
+        this.matter.world.setBounds(0,0, width, height);
+
+        // keep a reference of it on `playerEntities`
+        this.playerEntities[sessionId] = entity;
+
+        return entity;
+    }
+
     update(time: number, delta: number): void {
         // game loop
         // skip loop if not connected with room yet
@@ -127,9 +138,6 @@ export class GameScene extends Phaser.Scene {
             this.currentPlayer.thrustBack(0.1);
         }
 
-        // this.room.send(0, this.positionPayload);
-
-
 
         for (const sessionId in this.playerEntities) {
 
@@ -138,6 +146,9 @@ export class GameScene extends Phaser.Scene {
         
                 this.positionPayload.x = this.currentPlayer.x;
                 this.positionPayload.y = this.currentPlayer.y;
+                // console.log(this.currentPlayer.body);
+                this.positionPayload.velX = this.currentPlayer.body.velocity.x;
+                this.positionPayload.velY = this.currentPlayer.body.velocity.y;
         
                 
                 this.room.send(0, this.positionPayload);
@@ -146,10 +157,13 @@ export class GameScene extends Phaser.Scene {
 
             // interpolate all player entities
             const entity = this.playerEntities[sessionId];
-            const { serverX, serverY } = entity.data.values;
-
+            // console.log(entity.data.values);
+            const { serverX, serverY, serverVelX, serverVelY } = entity.data.values;
+            
             entity.x = Phaser.Math.Linear(entity.x, serverX, 0.2);
             entity.y = Phaser.Math.Linear(entity.y, serverY, 0.2);
+            entity.setVelocityX(serverVelX);
+            entity.setVelocityY(serverVelY);
         }
     }
 }
