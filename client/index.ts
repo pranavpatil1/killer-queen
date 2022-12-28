@@ -23,6 +23,7 @@ export class GameScene extends Phaser.Scene {
     preload() {
         // preload scene
         this.load.image('ship_0001', 'https://cdn.glitch.global/3e033dcd-d5be-4db4-99e8-086ae90969ec/ship_0001.png');
+        this.load.image('day_map', 'day_map_background.png');
         this.cursorKeys = this.input.keyboard.createCursorKeys();
     }
 
@@ -38,6 +39,15 @@ export class GameScene extends Phaser.Scene {
         try {
             this.room = await this.client.joinOrCreate("my_room");
 
+            const mapName = "day_map";
+            const mapImage = this.textures.get(mapName).getSourceImage();
+            const width = this.sys.game.scale.gameSize.width;
+            const height = width * mapImage.height / mapImage.width;
+
+            const background = this.add.image(0, 0, mapName);
+            background.setScale(width / mapImage.width, height / mapImage.height);
+            background.setOrigin(0, 0);
+
             this.room.state.players.onAdd = ((player, sessionId) => {
                 console.log("A player has joined! Their unique sesion id is ", sessionId)
 
@@ -47,7 +57,7 @@ export class GameScene extends Phaser.Scene {
                 entity.setFrictionAir(0.05);
                 entity.setAngle(270);
                 
-                this.matter.world.setBounds(0,0, 800, 600);
+                this.matter.world.setBounds(0,0, width, height);
 
                 // keep a reference of it on `playerEntities`
                 this.playerEntities[sessionId] = entity;
@@ -148,8 +158,8 @@ export class GameScene extends Phaser.Scene {
 
 const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
-    width: 800,
-    height: 600,
+    width: 1200,
+    height: 908 * 1200/1617,
     backgroundColor: '#888888',
     parent: 'phaser-example',
     physics: { 
