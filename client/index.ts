@@ -1,38 +1,42 @@
 import Phaser from "phaser";
 import { Client, Room } from "colyseus.js";
+import { CanvasSize, InputPayload, PositionPayload } from "./types";
 export class GameScene extends Phaser.Scene {
 
-    // local input cache
-    inputPayload = {
-        left: false,
-        right: false,
-        up: false,
-        down: false
-    }
 
-    positionPayload = {
-        x: 0,
-        y: 0,
-        velX: 0,
-        velY: 0,
-    }
+    inputPayload: InputPayload;
+    positionPayload: PositionPayload;
 
     cursorKeys: Phaser.Types.Input.Keyboard.CursorKeys;
 
     currentPlayer: Phaser.Physics.Matter.Image;
     remoteRef: Phaser.GameObjects.Rectangle;
 
+    client = new Client("ws://localhost:2567");
+    room: Room;
+
+    playerEntities: {[sessionId: string]: Phaser.Physics.Matter.Image} = {};
+
     preload() {
         // preload scene
         this.load.image('ship_0001', 'https://cdn.glitch.global/3e033dcd-d5be-4db4-99e8-086ae90969ec/ship_0001.png');
         this.load.image('day_map', 'assets/day_map_background.png');
         this.cursorKeys = this.input.keyboard.createCursorKeys();
+
+        this.inputPayload = {
+            left: false,
+            right: false,
+            up: false,
+            down: false
+        }
+
+        this.positionPayload = {
+            x: 0,
+            y: 0,
+            velX: 0,
+            velY: 0,
+        }
     }
-
-    client = new Client("ws://localhost:2567");
-    room: Room;
-
-    playerEntities: {[sessionId: string]: Phaser.Physics.Matter.Image} = {};
 
     async create() {
         // create scene
@@ -40,41 +44,11 @@ export class GameScene extends Phaser.Scene {
 
         try {
             this.room = await this.client.joinOrCreate("my_room");
-
-            const mapName: string = "day_map";
-            const mapImage = this.textures.get(mapName).getSourceImage();
-            const width: number = this.sys.game.scale.gameSize.width;
-            const height: number = width * mapImage.height / mapImage.width;
-
-            const background: Phaser.GameObjects.Image = this.add.image(0, 0, mapName);
-            background.setScale(width / mapImage.width, height / mapImage.height);
-            background.setOrigin(0, 0);
+            const canvas = this.setupGameBackground();
 
             this.room.state.players.onAdd = ((player, sessionId: string) => {
-                
-                let entity: Phaser.Physics.Matter.Image = this.setupRoom(sessionId, width, height);
-
-                if (sessionId === this.room.sessionId) {
-
-                    this.currentPlayer = entity;
-
-                    this.remoteRef = this.add.rectangle(0,0, entity.width, entity.height);
-                    this.remoteRef.setStrokeStyle(1, 0xff0000);
-
-                    player.onChange = (() => {
-                        this.remoteRef.x = player.x;
-                        this.remoteRef.y = player.y;
-                    })
-                } else {
-                    player.onChange = (() => {
-                        // LERP during the render loop
-                        entity.setData('serverX', player.x);
-                        entity.setData('serverY', player.y);
-                        entity.setData('serverVelX', player.velX);
-                        entity.setData('serverVelY', player.velY);
-                    })
-                }
-                
+                let entity: Phaser.Physics.Matter.Image = this.setupRoom(sessionId, canvas.width, canvas.height);
+                this.setupOnChangeListeners(player, sessionId, entity);    
             });
 
             this.room.state.players.onRemove = ((player, sessionId) => {
@@ -82,7 +56,6 @@ export class GameScene extends Phaser.Scene {
                 if (entity) {
                     // destroy entity
                     entity.destroy();
-
                     // clear local reference
                     delete this.playerEntities[sessionId];
                 }
@@ -97,6 +70,37 @@ export class GameScene extends Phaser.Scene {
         } catch (e) {
             console.error(e);
         }
+    }
+
+    update(time: number, delta: number): void {
+        // game loop
+        // skip loop if not connected with room yet
+        if (!this.room) { return; }
+
+        this.processInput();
+
+        for (const sessionId in this.playerEntities) {
+            this.updatePlayerEntities(sessionId);
+        }
+    }
+
+
+    setupGameBackground = (): CanvasSize => {
+        const mapName: string = "day_map";
+        const mapImage = this.textures.get(mapName).getSourceImage();
+        const width: number = this.sys.game.scale.gameSize.width;
+        const height: number = width * mapImage.height / mapImage.width;
+
+        const canvas: CanvasSize = {
+            width: width,
+            height: height
+        }
+
+        const background: Phaser.GameObjects.Image = this.add.image(0, 0, mapName);
+        background.setScale(width / mapImage.width, height / mapImage.height);
+        background.setOrigin(0, 0);
+
+        return canvas;
     }
 
     setupRoom = (sessionId: string, width: number, height: number): Phaser.Physics.Matter.Image => {
@@ -116,13 +120,34 @@ export class GameScene extends Phaser.Scene {
         return entity;
     }
 
-    update(time: number, delta: number): void {
-        // game loop
-        // skip loop if not connected with room yet
-        if (!this.room) { return; }
+    setupOnChangeListeners = (player, sessionId: string, entity: Phaser.Physics.Matter.Image): void => {
+        if (sessionId === this.room.sessionId) {
 
-        // send input to the server
-        const velocity = 2;
+            this.currentPlayer = entity;
+
+            this.remoteRef = this.add.rectangle(0,0, entity.width, entity.height);
+            this.remoteRef.setStrokeStyle(1, 0xff0000);
+
+            player.onChange = (() => {
+                this.remoteRef.x = player.x;
+                this.remoteRef.y = player.y;
+            })
+        } else {
+            player.onChange = (() => {
+                // LERP during the render loop
+                entity.setData('serverX', player.x);
+                entity.setData('serverY', player.y);
+                entity.setData('serverVelX', player.velX);
+                entity.setData('serverVelY', player.velY);
+            })
+        }
+    }
+
+    
+
+
+
+    processInput = () => {
         this.inputPayload.left = this.cursorKeys.left.isDown;
         this.inputPayload.right = this.cursorKeys.right.isDown;
         this.inputPayload.up = this.cursorKeys.up.isDown;
@@ -137,35 +162,39 @@ export class GameScene extends Phaser.Scene {
         } else if (this.inputPayload.down) {
             this.currentPlayer.thrustBack(0.1);
         }
-
-
-        for (const sessionId in this.playerEntities) {
-
-            if (sessionId === this.room.sessionId) {
-                const currentPlayer = this.playerEntities[this.room.sessionId];
-        
-                this.positionPayload.x = this.currentPlayer.x;
-                this.positionPayload.y = this.currentPlayer.y;
-                // console.log(this.currentPlayer.body);
-                this.positionPayload.velX = this.currentPlayer.body.velocity.x;
-                this.positionPayload.velY = this.currentPlayer.body.velocity.y;
-        
-                
-                this.room.send(0, this.positionPayload);
-                continue;
-            }
-
-            // interpolate all player entities
-            const entity = this.playerEntities[sessionId];
-            // console.log(entity.data.values);
-            const { serverX, serverY, serverVelX, serverVelY } = entity.data.values;
-            
-            entity.x = Phaser.Math.Linear(entity.x, serverX, 0.2);
-            entity.y = Phaser.Math.Linear(entity.y, serverY, 0.2);
-            entity.setVelocityX(serverVelX);
-            entity.setVelocityY(serverVelY);
-        }
     }
+
+    updatePlayerEntities = (sessionId: string): void => {
+        if (sessionId === this.room.sessionId) {
+            const currentPlayer = this.playerEntities[this.room.sessionId];
+    
+            this.positionPayload.x = this.currentPlayer.x;
+            this.positionPayload.y = this.currentPlayer.y;
+            // console.log(this.currentPlayer.body);
+            this.positionPayload.velX = this.currentPlayer.body.velocity.x;
+            this.positionPayload.velY = this.currentPlayer.body.velocity.y;
+    
+            
+            this.room.send(0, this.positionPayload);
+            return;
+        }
+
+        // interpolate all player entities
+        const entity = this.playerEntities[sessionId];
+        // console.log(entity.data.values);
+        const { serverX, serverY, serverVelX, serverVelY } = entity.data.values;
+        
+        if (serverVelX === undefined || serverVelY === undefined) {
+            return;
+        }
+
+        entity.x = Phaser.Math.Linear(entity.x, serverX, 0.5);
+        entity.y = Phaser.Math.Linear(entity.y, serverY, 0.5);
+        entity.setVelocityX(serverVelX);
+        entity.setVelocityY(serverVelY);
+    }
+
+
 }
 
 // game config
