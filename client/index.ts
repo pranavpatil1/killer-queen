@@ -30,7 +30,7 @@ export class GameScene extends Phaser.Scene {
     client = new Client("ws://localhost:2567");
     room: Room;
 
-    playerEntities: {[sessionId: string]: any} = {};
+    playerEntities: {[sessionId: string]: Phaser.Physics.Matter.Image} = {};
 
     async create() {
         // create scene
@@ -94,7 +94,7 @@ export class GameScene extends Phaser.Scene {
                 }
             });
 
-            var spaceBar = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+            const spaceBar = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
             spaceBar.on('down', () => {
                 this.currentPlayer.thrust(0.75);
             })
@@ -131,7 +131,7 @@ export class GameScene extends Phaser.Scene {
 
 
 
-        for (let sessionId in this.playerEntities) {
+        for (const sessionId in this.playerEntities) {
 
             if (sessionId === this.room.sessionId) {
                 const currentPlayer = this.playerEntities[this.room.sessionId];
