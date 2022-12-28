@@ -23,7 +23,7 @@ export class GameScene extends Phaser.Scene {
     preload() {
         // preload scene
         this.load.image('ship_0001', 'https://cdn.glitch.global/3e033dcd-d5be-4db4-99e8-086ae90969ec/ship_0001.png');
-        this.load.image('day_map', 'day_map_background.png');
+        this.load.image('day_map', 'assets/day_map_background.png');
         this.cursorKeys = this.input.keyboard.createCursorKeys();
     }
 
