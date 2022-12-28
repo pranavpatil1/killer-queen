@@ -44,7 +44,10 @@ export class GameScene extends Phaser.Scene {
 
         try {
             this.room = await this.client.joinOrCreate("my_room");
-            const canvas = this.setupGameBackground();
+            
+            const mapName: string = "day_map";
+            const canvas = this.setupGameBackground(mapName);
+            this.setupPlatforms(mapName);
 
             this.room.state.players.onAdd = ((player, sessionId: string) => {
                 let entity: Phaser.Physics.Matter.Image = this.setupRoom(sessionId, canvas.width, canvas.height);
@@ -85,8 +88,7 @@ export class GameScene extends Phaser.Scene {
     }
 
 
-    setupGameBackground = (): CanvasSize => {
-        const mapName: string = "day_map";
+    setupGameBackground = (mapName: string): CanvasSize => {
         const mapImage = this.textures.get(mapName).getSourceImage();
         const width: number = this.sys.game.scale.gameSize.width;
         const height: number = width * mapImage.height / mapImage.width;
@@ -118,6 +120,30 @@ export class GameScene extends Phaser.Scene {
         this.playerEntities[sessionId] = entity;
 
         return entity;
+    }
+
+    setupPlatforms = (mapName: string): void => {
+        if (mapName == "day_map") {
+            const scaleFactor = 1200 / 1617;
+            const rawDims = [
+                {"x": 0, "y": 897, "w": 1617, "h": 11},
+                {"x": 0, "y": 795, "w": 94, "h": 21},
+                {"x": 298, "y": 795, "w": 50, "h": 18}
+            ];
+            rawDims.forEach(val => {
+                val.x *= scaleFactor;
+                val.y *= scaleFactor;
+                val.w *= scaleFactor;
+                val.h *= scaleFactor;
+                const platform = this.matter.add.rectangle(val.x + val.w / 2, val.y + val.h / 2, val.w, val.h);
+                platform.isStatic = true;
+                platform.onCollideCallback = pair => {
+                    console.log("Collision detected");
+                    pair.bodyA.velocity.y = 0;
+                    pair.bodyB.velocity.y = 0;
+                };
+            })
+        }
     }
 
     setupOnChangeListeners = (player, sessionId: string, entity: Phaser.Physics.Matter.Image): void => {
