@@ -9,8 +9,7 @@ export class GameScene extends Phaser.Scene {
 
     cursorKeys: Phaser.Types.Input.Keyboard.CursorKeys;
 
-    currentPlayer: Phaser.Physics.Matter.Image;
-    remoteRef: Phaser.GameObjects.Rectangle;
+    currentPlayer: Phaser.Physics.Matter.Sprite;
 
     client = new Client("ws://localhost:2567");
     room: Room;
@@ -21,6 +20,7 @@ export class GameScene extends Phaser.Scene {
         // preload scene
         this.load.image('ship_0001', 'https://cdn.glitch.global/3e033dcd-d5be-4db4-99e8-086ae90969ec/ship_0001.png');
         this.load.image('day_map', 'assets/day_map_background.png');
+        this.load.spritesheet('queen_blue', 'assets/queen_spritesheet.png', { frameWidth: 50, frameHeight: 50 });
         this.cursorKeys = this.input.keyboard.createCursorKeys();
 
         this.inputPayload = {
@@ -50,7 +50,7 @@ export class GameScene extends Phaser.Scene {
             this.setupPlatforms(mapName);
 
             this.room.state.players.onAdd = ((player, sessionId: string) => {
-                let entity: Phaser.Physics.Matter.Image = this.setupRoom(sessionId, canvas.width, canvas.height);
+                let entity: Phaser.Physics.Matter.Sprite = this.setupRoom(sessionId, canvas.width, canvas.height);
                 this.setupOnChangeListeners(player, sessionId, entity);    
             });
 
@@ -67,6 +67,7 @@ export class GameScene extends Phaser.Scene {
             const spaceBar = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
             spaceBar.on('down', () => {
                 this.currentPlayer.thrust(0.375);
+                this.currentPlayer.anims.play('queen_fly');
             })
 
             console.log("Joined successfully!");
@@ -105,14 +106,48 @@ export class GameScene extends Phaser.Scene {
         return canvas;
     }
 
-    setupRoom = (sessionId: string, width: number, height: number): Phaser.Physics.Matter.Image => {
+    setupRoom = (sessionId: string, width: number, height: number): Phaser.Physics.Matter.Sprite => {
         console.log("A player has joined! Their unique sesion id is ", sessionId)
 
-        const entity = this.matter.add.image(40, 50, 'ship_0001');
+        const entity = new Phaser.Physics.Matter.Sprite(this.matter.world, 40, 50, 'queen_blue');
+        this.add.existing(entity);
+        // this.matter.add.image(40, 50, 'ship_0001');
+        // const entity = this.matter.add.sprite(40, 50, 'queen_blue');
         entity.setFixedRotation();
         entity.setMass(30);
         entity.setFrictionAir(0.05);
         entity.setAngle(270);
+
+        this.matter.world.on('collisionstart', (event, bodyA, bodyB) => {
+            this.currentPlayer.anims.play('queen_walk');
+        });
+
+        this.anims.create({
+            key: 'queen_fly',
+            frames: this.anims.generateFrameNumbers('queen_blue', { start: 0, end: 1 }),
+            frameRate: 10,
+            repeat: -1
+        });
+        this.anims.create({
+            key: 'queen_dive',
+            frames: this.anims.generateFrameNumbers('queen_blue', { start: 2, end: 2 }),
+            frameRate: 10,
+            repeat: -1
+        });
+        this.anims.create({
+            key: 'queen_walk',
+            frames: this.anims.generateFrameNumbers('queen_blue', { start: 3, end: 4 }),
+            frameRate: 10,
+            repeat: -1
+        });
+        this.anims.create({
+            key: 'queen_idle',
+            frames: this.anims.generateFrameNumbers('queen_blue', { start: 5, end: 5 }),
+            frameRate: 10,
+            repeat: -1
+        });
+
+        entity.anims.play('queen_walk');
         
         this.matter.world.setBounds(0,0, width, height);
 
@@ -135,29 +170,15 @@ export class GameScene extends Phaser.Scene {
                 val.y *= scaleFactor;
                 val.w *= scaleFactor;
                 val.h *= scaleFactor;
-                const platform = this.matter.add.rectangle(val.x + val.w / 2, val.y + val.h / 2, val.w, val.h);
+                const platform: MatterJS.BodyType = this.matter.add.rectangle(val.x + val.w / 2, val.y + val.h / 2, val.w, val.h);
                 platform.isStatic = true;
-                platform.onCollideCallback = pair => {
-                    console.log("Collision detected");
-                    pair.bodyA.velocity.y = 0;
-                    pair.bodyB.velocity.y = 0;
-                };
             })
         }
     }
 
-    setupOnChangeListeners = (player, sessionId: string, entity: Phaser.Physics.Matter.Image): void => {
+    setupOnChangeListeners = (player, sessionId: string, entity: Phaser.Physics.Matter.Sprite): void => {
         if (sessionId === this.room.sessionId) {
-
             this.currentPlayer = entity;
-
-            this.remoteRef = this.add.rectangle(0,0, entity.width, entity.height);
-            this.remoteRef.setStrokeStyle(1, 0xff0000);
-
-            player.onChange = (() => {
-                this.remoteRef.x = player.x;
-                this.remoteRef.y = player.y;
-            })
         } else {
             player.onChange = (() => {
                 // LERP during the render loop
@@ -181,12 +202,15 @@ export class GameScene extends Phaser.Scene {
 
         if (this.inputPayload.left) {
             this.currentPlayer.thrustLeft(0.02);
+            this.currentPlayer.setFlipY(true);
         } else if (this.inputPayload.right) {
             this.currentPlayer.thrustRight(0.02);
+            this.currentPlayer.setFlipY(false);
         } else if (this.inputPayload.up) {
             this.currentPlayer.thrust(0.1);
         } else if (this.inputPayload.down) {
             this.currentPlayer.thrustBack(0.1);
+            this.currentPlayer.anims.play('queen_dive');
         }
     }
 
