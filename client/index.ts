@@ -22,6 +22,7 @@ export class GameScene extends Phaser.Scene {
         this.load.image('ship_0001', 'https://cdn.glitch.global/3e033dcd-d5be-4db4-99e8-086ae90969ec/ship_0001.png');
         this.load.image('day_map', 'assets/day_map_background.png');
         this.load.spritesheet('queen_blue', 'assets/queen_spritesheet.png', { frameWidth: 50, frameHeight: 50 });
+        this.load.spritesheet('queen_orange', 'assets/queen_orange.png', { frameWidth: 50, frameHeight: 50 });
         this.cursorKeys = this.input.keyboard.createCursorKeys();
 
         this.inputPayload = {
@@ -35,7 +36,7 @@ export class GameScene extends Phaser.Scene {
             x: 0,
             y: 0,
             velX: 0,
-            velY: 0,
+            velY: 0
         }
     }
 
@@ -51,7 +52,7 @@ export class GameScene extends Phaser.Scene {
             this.setupPlatforms(mapName);
 
             this.room.state.players.onAdd = ((player, sessionId: string) => {
-                let entity: Player = this.setupRoom(sessionId, canvas.width, canvas.height);
+                let entity: Player = this.setupRoom(sessionId, canvas.width, canvas.height, player.blueTeam);
                 this.setupOnChangeListeners(player, sessionId, entity);    
             });
 
@@ -68,7 +69,7 @@ export class GameScene extends Phaser.Scene {
             const spaceBar = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
             spaceBar.on('down', () => {
                 this.currentPlayer.thrust(0.375);
-                this.currentPlayer.anims.play('queen_fly');
+                this.currentPlayer.anims.play(this.currentPlayer.texture.key + '_fly');
             })
 
             console.log("Joined successfully!");
@@ -85,7 +86,7 @@ export class GameScene extends Phaser.Scene {
         this.processInput();
 
         for (const sessionId in this.playerEntities) {
-            this.updatePlayerEntities(sessionId);
+            this.updatePlayerEntities(sessionId, time);
         }
     }
 
@@ -107,10 +108,19 @@ export class GameScene extends Phaser.Scene {
         return canvas;
     }
 
-    setupRoom = (sessionId: string, width: number, height: number): Phlayer => {
-        console.log("A player has joined! Their unique sesion id is ", sessionId)
+    getSessionIdFromEntity(entity: Player): string {
+        let answer = "";
+        Object.keys(this.playerEntities).forEach(key => {
+            if (this.playerEntities[key] == entity) {
+                answer = key;
+            }
+        })
+        return answer;
+    }
 
-        const entity = new Player(this.matter.world, 'queen_blue', [
+    setupRoom = (sessionId: string, width: number, height: number, blueTeam: boolean): Player => {
+        console.log("A player has joined! Their unique sesion id is ", sessionId);
+        const entity = new Player(this.matter.world, blueTeam ? 'queen_blue' : "queen_orange", blueTeam, false, [
             {"x": 8, "y": 0},
             {"x": 50, "y": 0},
             {"x": 50, "y": 20},
@@ -123,36 +133,53 @@ export class GameScene extends Phaser.Scene {
         entity.setFrictionAir(0.05);
         entity.setAngle(270);
 
+        let spritesheets: string[] = ["queen_orange", "queen_blue"];
+        
         this.matter.world.on('collisionstart', (event, bodyA, bodyB) => {
-            this.currentPlayer.anims.play('queen_walk');
+            // groups are 0 (platforms), Player.blueGroup, Player.orangeGroup
+            let groupA: number = bodyA.collisionFilter.group;
+            let groupB: number = bodyB.collisionFilter.group;
+            
+            if (groupA == 0 || groupB == 0) {
+                this.currentPlayer.anims.play(this.currentPlayer.texture.key + '_walk');
+            } else {
+                if (bodyA.gameObject.y < bodyB.gameObject.y - 10) {
+                    this.room.send(1, this.getSessionIdFromEntity(bodyB.gameObject));
+                } else if (bodyB.gameObject.y < bodyA.gameObject.y - 10) {
+                    this.room.send(1, this.getSessionIdFromEntity(bodyA.gameObject));
+                }
+            }
         });
 
-        this.anims.create({
-            key: 'queen_fly',
-            frames: this.anims.generateFrameNumbers('queen_blue', { start: 0, end: 1 }),
-            frameRate: 10,
-            repeat: -1
-        });
-        this.anims.create({
-            key: 'queen_dive',
-            frames: this.anims.generateFrameNumbers('queen_blue', { start: 2, end: 2 }),
-            frameRate: 10,
-            repeat: -1
-        });
-        this.anims.create({
-            key: 'queen_walk',
-            frames: this.anims.generateFrameNumbers('queen_blue', { start: 3, end: 4 }),
-            frameRate: 10,
-            repeat: -1
-        });
-        this.anims.create({
-            key: 'queen_idle',
-            frames: this.anims.generateFrameNumbers('queen_blue', { start: 5, end: 5 }),
-            frameRate: 10,
-            repeat: -1
-        });
+        spritesheets.forEach(el => {
+            this.anims.create({
+                key: el+'_fly',
+                frames: this.anims.generateFrameNumbers(el, { start: 0, end: 1 }),
+                frameRate: 10,
+                repeat: -1
+            });
+            this.anims.create({
+                key: el+'_dive',
+                frames: this.anims.generateFrameNumbers(el, { start: 2, end: 2 }),
+                frameRate: 10,
+                repeat: -1
+            });
+            this.anims.create({
+                key: el+'_walk',
+                frames: this.anims.generateFrameNumbers(el, { start: 3, end: 4 }),
+                frameRate: 10,
+                repeat: -1
+            });
+            this.anims.create({
+                key: el+'_idle',
+                frames: this.anims.generateFrameNumbers(el, { start: 5, end: 5 }),
+                frameRate: 10,
+                repeat: -1
+            });
+        })
+        
 
-        entity.anims.play('queen_walk');
+        entity.anims.play(entity.texture.key + '_walk');
         
         this.matter.world.setBounds(0,0, width, height);
 
@@ -176,7 +203,9 @@ export class GameScene extends Phaser.Scene {
                 {"x": 418, "y": 694, "w": 100, "h": 18},
                 {"x": 758, "y": 694, "w": 100, "h": 18},
                 {"x": 1098, "y": 694, "w": 100, "h": 18},
-                {"x": 1386, "y": 694, "w": 67, "h": 18}
+                {"x": 1386, "y": 694, "w": 67, "h": 18},
+                {"x": 792, "y": 0, "w": 32, "h": 201},
+                {"x": 591, "y": 185, "w": 438, "h": 20}
             ];
             rawDims.forEach(val => {
                 val.x *= scaleFactor;
@@ -203,10 +232,6 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
-    
-
-
-
     processInput = () => {
         this.inputPayload.left = this.cursorKeys.left.isDown;
         this.inputPayload.right = this.cursorKeys.right.isDown;
@@ -223,11 +248,11 @@ export class GameScene extends Phaser.Scene {
             this.currentPlayer.thrust(0.1);
         } else if (this.inputPayload.down) {
             this.currentPlayer.thrustBack(0.1);
-            this.currentPlayer.anims.play('queen_dive');
+            this.currentPlayer.anims.play(this.currentPlayer.texture.key + '_dive');
         }
     }
 
-    updatePlayerEntities = (sessionId: string): void => {
+    updatePlayerEntities = (sessionId: string, time: number): void => {
         if (sessionId === this.room.sessionId) {
             const currentPlayer = this.playerEntities[this.room.sessionId];
     
@@ -237,6 +262,10 @@ export class GameScene extends Phaser.Scene {
             this.positionPayload.velX = this.currentPlayer.body.velocity.x;
             this.positionPayload.velY = this.currentPlayer.body.velocity.y;
     
+            if (this.currentPlayer.killTime != 0 && time > this.currentPlayer.killTime + 1000) {
+                this.currentPlayer.respawn();
+                this.room.send(1, null);
+            }
             
             this.room.send(0, this.positionPayload);
             return;
@@ -251,6 +280,10 @@ export class GameScene extends Phaser.Scene {
             return;
         }
 
+        if (entity.killTime != 0 && time > entity.killTime + 1000) {
+            entity.respawn();
+        }
+        
         entity.x = Phaser.Math.Linear(entity.x, serverX, 0.5);
         entity.y = Phaser.Math.Linear(entity.y, serverY, 0.5);
         entity.setVelocityX(serverVelX);

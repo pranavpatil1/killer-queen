@@ -5,6 +5,8 @@ export class Player extends Schema {
   @type("number") y: number;
   @type("number") velX: number;
   @type("number") velY: number;
+  @type("boolean") blueTeam: boolean;
+  @type("number") killTime: number;
 }
 
 export class MyRoomState extends Schema {
