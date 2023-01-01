@@ -109,10 +109,17 @@ export class GameScene extends Phaser.Scene {
     setupRoom = (sessionId: string, width: number, height: number): Phaser.Physics.Matter.Sprite => {
         console.log("A player has joined! Their unique sesion id is ", sessionId)
 
-        const entity = new Phaser.Physics.Matter.Sprite(this.matter.world, 40, 50, 'queen_blue');
+        const entity = new Phaser.Physics.Matter.Sprite(this.matter.world, 40, 50, 'queen_blue', null, {
+            // notice that these coords are on a rotated spritesheet. did a bit of guess and check
+            vertices: [
+                {"x": 8, "y": 0},
+                {"x": 50, "y": 0},
+                {"x": 50, "y": 20},
+                {"x": 8, "y": 20}
+            ]
+        });
         this.add.existing(entity);
-        // this.matter.add.image(40, 50, 'ship_0001');
-        // const entity = this.matter.add.sprite(40, 50, 'queen_blue');
+
         entity.setFixedRotation();
         entity.setMass(30);
         entity.setFrictionAir(0.05);
@@ -163,7 +170,15 @@ export class GameScene extends Phaser.Scene {
             const rawDims = [
                 {"x": 0, "y": 897, "w": 1617, "h": 11},
                 {"x": 0, "y": 795, "w": 94, "h": 21},
-                {"x": 298, "y": 795, "w": 50, "h": 18}
+                {"x": 298, "y": 795, "w": 50, "h": 18},
+                {"x": 589, "y": 795, "w": 438, "h": 18},
+                {"x": 1268, "y": 795, "w": 50, "h": 18},
+                {"x": 1522, "y": 795, "w": 94, "h": 18},
+                {"x": 163, "y": 694, "w": 67, "h": 18},
+                {"x": 418, "y": 694, "w": 100, "h": 18},
+                {"x": 758, "y": 694, "w": 100, "h": 18},
+                {"x": 1098, "y": 694, "w": 100, "h": 18},
+                {"x": 1386, "y": 694, "w": 94, "h": 18}
             ];
             rawDims.forEach(val => {
                 val.x *= scaleFactor;
