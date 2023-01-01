@@ -144,8 +144,10 @@ export class GameScene extends Phaser.Scene {
                 this.currentPlayer.anims.play(this.currentPlayer.texture.key + '_walk');
             } else {
                 if (bodyA.gameObject.y < bodyB.gameObject.y - 10) {
+                    console.log("KILL!")
                     this.room.send(1, this.getSessionIdFromEntity(bodyB.gameObject));
                 } else if (bodyB.gameObject.y < bodyA.gameObject.y - 10) {
+                    console.log("KILL!")
                     this.room.send(1, this.getSessionIdFromEntity(bodyA.gameObject));
                 }
             }
@@ -221,6 +223,11 @@ export class GameScene extends Phaser.Scene {
     setupOnChangeListeners = (player, sessionId: string, entity: Player): void => {
         if (sessionId === this.room.sessionId) {
             this.currentPlayer = entity;
+            player.onChange = (() => {
+                if (!player.alive && this.currentPlayer.killTime == 0) {
+                    this.currentPlayer.killTime = this.time.now;
+                }
+            })
         } else {
             player.onChange = (() => {
                 // LERP during the render loop
@@ -228,6 +235,9 @@ export class GameScene extends Phaser.Scene {
                 entity.setData('serverY', player.y);
                 entity.setData('serverVelX', player.velX);
                 entity.setData('serverVelY', player.velY);
+                if (!player.alive && entity.killTime == 0) {
+                    entity.killTime = this.time.now;
+                }
             })
         }
     }
@@ -256,21 +266,27 @@ export class GameScene extends Phaser.Scene {
         if (sessionId === this.room.sessionId) {
             const currentPlayer = this.playerEntities[this.room.sessionId];
     
+            if (this.currentPlayer.killTime != 0) {
+                console.log("current player is dead");
+            }
+
+            if (this.currentPlayer.killTime != 0 && time > this.currentPlayer.killTime + 5000) {
+                console.log("respawn time!");
+                this.currentPlayer.respawn();
+                this.currentPlayer.killTime = 0;
+                this.room.send(2, null);
+            }
+
             this.positionPayload.x = this.currentPlayer.x;
             this.positionPayload.y = this.currentPlayer.y;
             // console.log(this.currentPlayer.body);
             this.positionPayload.velX = this.currentPlayer.body.velocity.x;
             this.positionPayload.velY = this.currentPlayer.body.velocity.y;
     
-            if (this.currentPlayer.killTime != 0 && time > this.currentPlayer.killTime + 1000) {
-                this.currentPlayer.respawn();
-                this.room.send(1, null);
-            }
             
             this.room.send(0, this.positionPayload);
             return;
         }
-
         // interpolate all player entities
         const entity = this.playerEntities[sessionId];
         // console.log(entity.data.values);
@@ -280,14 +296,20 @@ export class GameScene extends Phaser.Scene {
             return;
         }
 
-        if (entity.killTime != 0 && time > entity.killTime + 1000) {
-            entity.respawn();
+        if (entity.killTime != 0) {
+            console.log("other player is dead");
         }
-        
+
         entity.x = Phaser.Math.Linear(entity.x, serverX, 0.5);
         entity.y = Phaser.Math.Linear(entity.y, serverY, 0.5);
         entity.setVelocityX(serverVelX);
         entity.setVelocityY(serverVelY);
+
+        if (entity.killTime != 0 && time > entity.killTime + 5000) {
+            console.log("other respawn time!")
+            entity.respawn();
+            entity.killTime = 0;
+        }
     }
 
 

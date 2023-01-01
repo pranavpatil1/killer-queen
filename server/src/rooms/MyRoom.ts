@@ -28,24 +28,29 @@ export class MyRoom extends Room<MyRoomState> {
       // get reference to the player who sent the message
       const player = this.state.players.get(client.sessionId);
       
-      player.x = input.x;
-      player.y = input.y;
-      player.velX = input.velX;
-      player.velY = input.velY;
+      // only alive players can move!
+      if (player.alive) {
+        player.x = input.x;
+        player.y = input.y;
+        player.velX = input.velX;
+        player.velY = input.velY;
+      }
     });
     
     // handle kills
     this.onMessage(1, (client, input) => {
       // get reference to the player who was killed the message
       const player = this.state.players.get(input);
+
       
-      player.killTime = this.clock.currentTime;
+      player.alive = false;
+      console.log("player killed");
       player.x = -10;
     });
 
     this.onMessage(2, (client, input) => {
       const player = this.state.players.get(client.sessionId);
-      player.killTime = 0;
+      player.alive = true;
     });
 
   }
@@ -63,7 +68,7 @@ export class MyRoom extends Room<MyRoomState> {
     player.y = (Math.random() * mapHeight);
 
     // not dead
-    player.killTime = 0;
+    player.alive = true;
 
     if (this.bluePlayers > this.orangePlayers) {
       this.orangePlayers ++;
