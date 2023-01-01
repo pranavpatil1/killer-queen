@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { Client, Room } from "colyseus.js";
 import { CanvasSize, InputPayload, PositionPayload } from "./types";
+import { Player } from "./sprites/player";
 export class GameScene extends Phaser.Scene {
 
 
@@ -9,12 +10,12 @@ export class GameScene extends Phaser.Scene {
 
     cursorKeys: Phaser.Types.Input.Keyboard.CursorKeys;
 
-    currentPlayer: Phaser.Physics.Matter.Sprite;
+    currentPlayer: Player;
 
     client = new Client("ws://localhost:2567");
     room: Room;
 
-    playerEntities: {[sessionId: string]: Phaser.Physics.Matter.Image} = {};
+    playerEntities: {[sessionId: string]: Player} = {};
 
     preload() {
         // preload scene
@@ -50,7 +51,7 @@ export class GameScene extends Phaser.Scene {
             this.setupPlatforms(mapName);
 
             this.room.state.players.onAdd = ((player, sessionId: string) => {
-                let entity: Phaser.Physics.Matter.Sprite = this.setupRoom(sessionId, canvas.width, canvas.height);
+                let entity: Player = this.setupRoom(sessionId, canvas.width, canvas.height);
                 this.setupOnChangeListeners(player, sessionId, entity);    
             });
 
@@ -106,18 +107,15 @@ export class GameScene extends Phaser.Scene {
         return canvas;
     }
 
-    setupRoom = (sessionId: string, width: number, height: number): Phaser.Physics.Matter.Sprite => {
+    setupRoom = (sessionId: string, width: number, height: number): Phlayer => {
         console.log("A player has joined! Their unique sesion id is ", sessionId)
 
-        const entity = new Phaser.Physics.Matter.Sprite(this.matter.world, 40, 50, 'queen_blue', null, {
-            // notice that these coords are on a rotated spritesheet. did a bit of guess and check
-            vertices: [
-                {"x": 8, "y": 0},
-                {"x": 50, "y": 0},
-                {"x": 50, "y": 20},
-                {"x": 8, "y": 20}
-            ]
-        });
+        const entity = new Player(this.matter.world, 'queen_blue', [
+            {"x": 8, "y": 0},
+            {"x": 50, "y": 0},
+            {"x": 50, "y": 20},
+            {"x": 8, "y": 20}
+        ]);
         this.add.existing(entity);
 
         entity.setFixedRotation();
@@ -178,7 +176,7 @@ export class GameScene extends Phaser.Scene {
                 {"x": 418, "y": 694, "w": 100, "h": 18},
                 {"x": 758, "y": 694, "w": 100, "h": 18},
                 {"x": 1098, "y": 694, "w": 100, "h": 18},
-                {"x": 1386, "y": 694, "w": 94, "h": 18}
+                {"x": 1386, "y": 694, "w": 67, "h": 18}
             ];
             rawDims.forEach(val => {
                 val.x *= scaleFactor;
@@ -191,7 +189,7 @@ export class GameScene extends Phaser.Scene {
         }
     }
 
-    setupOnChangeListeners = (player, sessionId: string, entity: Phaser.Physics.Matter.Sprite): void => {
+    setupOnChangeListeners = (player, sessionId: string, entity: Player): void => {
         if (sessionId === this.room.sessionId) {
             this.currentPlayer = entity;
         } else {
